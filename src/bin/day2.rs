@@ -1,56 +1,64 @@
-use std::ops::Deref;
-
 use advent_of_code_2022::prelude::*;
 use anyhow::anyhow;
 
 fn main() -> Result<()> {
+    let input = Input::Full(2);
+    let strategy_one = StrategyOne::try_from(input)?;
+    let strategy_two = StrategyTwo::try_from(input)?;
 
-    let strategy_guide: StrategyGuide = Input::Full(2).try_into()?;
-
-    println!("Day 1: {}", strategy_guide.total_score());
+    println!("Day 1: {}", strategy_one.score());
+    println!("Day 2: {}", strategy_two.score());
 
     Ok(())
 }
 
-#[derive(Debug, PartialEq, Eq)]
-struct StrategyGuide(Vec<Round>);
+struct StrategyOne {
+    input: String
+}
 
-impl StrategyGuide {
-    fn total_score(&self) -> i32 {
-        self.iter()
-            .map(|round| round.score())
+impl StrategyOne {
+    fn score(&self) -> i32 {
+        self.input.lines()
+            .filter_map(|s| s.split_once(' '))
+            .filter_map(|pair| pair.try_into().ok())
+            .map(|round: Round| round.score())
             .sum()
     }
 }
 
-impl Deref for StrategyGuide {
-    type Target = Vec<Round>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl TryFrom<Input> for StrategyGuide {
+impl TryFrom<Input> for StrategyOne {
     type Error = anyhow::Error;
 
     fn try_from(value: Input) -> Result<Self> {
         let input = read_input(value)?;
-        input.try_into()
+        Ok(Self {
+            input
+        })
     }
 }
 
-impl TryFrom<Vec<String>> for StrategyGuide {
+struct StrategyTwo {
+    input: String
+}
+
+impl StrategyTwo {
+    fn score(&self) -> i32 {
+        self.input.lines()
+            .filter_map(|s| s.split_once(' '))
+            .filter_map(|pair| pair.try_into().ok())
+            .map(|round: Round2| round.score())
+            .sum()
+    }
+}
+
+impl TryFrom<Input> for StrategyTwo {
     type Error = anyhow::Error;
 
-    fn try_from(value: Vec<String>) -> Result<Self> {
-        let mut results = vec![];
-        let pairs = value.iter()
-            .filter_map(|s| s.split_once(' '));
-        for pair in pairs {
-            results.push(pair.try_into()?);
-        }
-        Ok(Self(results))
+    fn try_from(value: Input) -> Result<Self> {
+        let input = read_input(value)?;
+        Ok(Self {
+            input
+        })
     }
 }
 
@@ -83,12 +91,6 @@ impl Round {
     }
 }
 
-impl From<(Hand, Hand)> for Round {
-    fn from(value: (Hand, Hand)) -> Self {
-        Self(value.0, value.1)
-    }
-}
-
 impl TryFrom<(&str, &str)> for Round {
     type Error = anyhow::Error;
 
@@ -97,15 +99,48 @@ impl TryFrom<(&str, &str)> for Round {
     }
 }
 
-
 #[derive(Debug, PartialEq, Eq)]
+struct Round2(Hand, Outcome);
+
+impl Round2 {
+    fn score(&self) -> i32 {
+        let my_hand = match &self {
+            Self(Hand::Rock, Outcome::Win) => Hand::Paper,
+            Self(Hand::Rock, Outcome::Lose) => Hand::Scissors,
+            Self(Hand::Rock, Outcome::Draw) => Hand::Rock,
+            Self(Hand::Paper, Outcome::Win) => Hand::Scissors,
+            Self(Hand::Paper, Outcome::Lose) => Hand::Rock,
+            Self(Hand::Paper, Outcome::Draw) => Hand::Paper,
+            Self(Hand::Scissors, Outcome::Win) => Hand::Rock,
+            Self(Hand::Scissors, Outcome::Lose) => Hand::Paper,
+            Self(Hand::Scissors, Outcome::Draw) => Hand::Scissors,
+        };
+        let round = Round(self.0.clone(), my_hand);
+
+        round.score()
+    }
+}
+
+impl TryFrom<(&str, &str)> for Round2 {
+    type Error = anyhow::Error;
+
+    fn try_from(value: (&str, &str)) -> Result<Self> {
+        let hand = Hand::try_from(value.0)?;
+        let outcome = Outcome::try_from(value.1)?;
+
+        Ok(Self(hand, outcome))
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum Hand {
     Rock,
     Paper,
     Scissors,
 }
 
-impl TryFrom<&str> for Hand {
+impl TryFrom<&str> for Hand
+{
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self> {
@@ -114,6 +149,26 @@ impl TryFrom<&str> for Hand {
             "B" | "Y" => Ok(Hand::Paper),
             "C" | "Z" => Ok(Hand::Scissors),
             _ => Err(anyhow!("Invalid Hand Value: {}", value))
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Outcome {
+    Win,
+    Lose,
+    Draw,
+}
+
+impl TryFrom<&str> for Outcome {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self> {
+        match value {
+            "X" => Ok(Outcome::Lose),
+            "Y" => Ok(Outcome::Draw),
+            "Z" => Ok(Outcome::Win),
+            _ => Err(anyhow!("Invalid Outcome Value: {}", value))
         }
     }
 }
@@ -173,23 +228,21 @@ mod tests {
     }
 
     #[test]
-    fn strategy_guide_from_input_works() {
-        let strategy_guide = StrategyGuide::try_from(Input::Test(2)).unwrap();
+    fn strategy_one_score_works() {
+        let strategy_one = StrategyOne::try_from(Input::Test(2)).unwrap();
 
-        assert_eq!(strategy_guide, StrategyGuide(vec![
-            Round(Hand::Rock, Hand::Paper),
-            Round(Hand::Paper, Hand::Rock),
-            Round(Hand::Scissors, Hand::Scissors),
-        ]))
+        let score = strategy_one.score();
+
+        assert_eq!(score, 15)
     }
 
     #[test]
-    fn strategy_guide_total_score_works() {
-        let strategy_guide = StrategyGuide::try_from(Input::Test(2)).unwrap();
+    fn strategy_two_score_works() {
+        let strategy_two = StrategyTwo::try_from(Input::Test(2)).unwrap();
 
-        let total_score = strategy_guide.total_score();
+        let score = strategy_two.score();
 
-        assert_eq!(total_score, 15);
+        assert_eq!(score, 12)
     }
 }
 

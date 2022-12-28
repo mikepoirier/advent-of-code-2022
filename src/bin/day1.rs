@@ -66,13 +66,13 @@ impl TryFrom<Input> for ElfCalories {
     }
 }
 
-impl TryFrom<Vec<String>> for ElfCalories {
+impl TryFrom<String> for ElfCalories {
     type Error = anyhow::Error;
 
-    fn try_from(value: Vec<String>) -> CoreResult<Self, Self::Error> {
+    fn try_from(value: String) -> CoreResult<Self, Self::Error> {
         let mut parsed_input = ElfCalories::default();
         let mut inner_vec: Vec<i32> = vec![];
-        for item in value {
+        for item in value.lines() {
             if item.is_empty() {
                 parsed_input.push(inner_vec);
                 inner_vec = vec![];
